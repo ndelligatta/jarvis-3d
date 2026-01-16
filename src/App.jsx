@@ -1,11 +1,36 @@
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { Bloom, EffectComposer, ChromaticAberration, Vignette } from '@react-three/postprocessing'
 import { OrbitControls, Stars } from '@react-three/drei'
-import { Suspense, useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { BlendFunction } from 'postprocessing'
+import * as THREE from 'three'
 import JarvisCore from './components/JarvisCore'
 import CodeGeneration from './components/CodeGeneration'
 import TextInterface from './components/TextInterface'
+
+// Camera angle tracker component
+function CameraTracker({ onAngleChange }) {
+  const { camera } = useThree()
+
+  useFrame(() => {
+    // Get spherical coordinates from camera position
+    const spherical = new THREE.Spherical()
+    spherical.setFromVector3(camera.position)
+
+    // Convert to degrees
+    const azimuth = THREE.MathUtils.radToDeg(spherical.theta)
+    const polar = THREE.MathUtils.radToDeg(spherical.phi)
+    const distance = spherical.radius
+
+    onAngleChange({
+      azimuth: azimuth.toFixed(1),
+      polar: polar.toFixed(1),
+      distance: distance.toFixed(2)
+    })
+  })
+
+  return null
+}
 
 function App() {
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -13,6 +38,7 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
   const [mode, setMode] = useState('idle') // 'idle', 'speaking', 'generating'
+  const [cameraAngles, setCameraAngles] = useState({ azimuth: '0', polar: '90', distance: '5' })
 
   // Typewriter effect
   const speak = useCallback((text, callback) => {
@@ -146,6 +172,8 @@ function App() {
           <CodeGeneration isGenerating={isGenerating} progress={progress} />
         </Suspense>
 
+        <CameraTracker onAngleChange={setCameraAngles} />
+
         <EffectComposer>
           <Bloom
             intensity={isGenerating ? 2.5 : 2}
@@ -194,6 +222,28 @@ function App() {
         background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.03) 2px, rgba(0, 0, 0, 0.03) 4px)',
         zIndex: 100,
       }} />
+
+      {/* Debug camera angle label */}
+      <div style={{
+        position: 'absolute',
+        bottom: '20px',
+        left: '20px',
+        padding: '12px 16px',
+        background: 'rgba(0, 0, 0, 0.8)',
+        border: '1px solid rgba(255, 100, 0, 0.5)',
+        borderRadius: '4px',
+        fontFamily: "'Roboto Mono', monospace",
+        fontSize: '12px',
+        color: '#ff6600',
+        zIndex: 300,
+        textShadow: '0 0 5px #ff6600',
+        pointerEvents: 'none',
+      }}>
+        <div style={{ marginBottom: '4px', color: '#ff9944', fontSize: '10px', letterSpacing: '2px' }}>DEBUG</div>
+        <div>AZIMUTH: <span style={{ color: '#00ffaa' }}>{cameraAngles.azimuth}°</span></div>
+        <div>POLAR: <span style={{ color: '#00ffaa' }}>{cameraAngles.polar}°</span></div>
+        <div>DISTANCE: <span style={{ color: '#00ffaa' }}>{cameraAngles.distance}</span></div>
+      </div>
 
       {/* Code generation indicator */}
       {isGenerating && (
